@@ -25,12 +25,12 @@
                 },
                 {
                     "name": "Activate",
-                    "type": "Button",
+                    "type": "PassThrough",
                     "id": "e4bc3240-b786-4e35-a970-d2d390afe317",
                     "expectedControlType": "Button",
                     "processors": "",
                     "interactions": "",
-                    "initialStateCheck": false
+                    "initialStateCheck": true
                 }
             ],
             "bindings": [

@@ -3,7 +3,12 @@
 --- !u!78 &1
 TagManager:
   serializedVersion: 2
-  tags: []
+  tags:
+  - anvil
+  - forge
+  - stock_pile
+  - water_bath
+  - grind_stone
   layers:
   - Default
   - TransparentFX
