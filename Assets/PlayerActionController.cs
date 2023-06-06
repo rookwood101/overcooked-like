@@ -3,6 +3,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.UI;
 
 public class PlayerActionController : MonoBehaviour
 {
@@ -18,7 +19,8 @@ public class PlayerActionController : MonoBehaviour
             {"hot_stock", "hot_shaped_stock"}
         }},
         {"water_bath", new Dictionary<string, string>() {
-            {"hot_shaped_stock", "tempered_shaped_stock"}
+            {"hot_shaped_stock", "tempered_shaped_stock"},
+            {"hot_stock", "stock"}
         }},
         {"grind_stone", new Dictionary<string, string>() {
             {"tempered_shaped_stock", "blade"}
@@ -27,6 +29,9 @@ public class PlayerActionController : MonoBehaviour
     private static readonly HashSet<string> autoTransformStations = new HashSet<string>() {
         "forge", "water_bath"
     };
+    private GameObject progressbarPrefab;
+    private Camera mainCamera;
+    private GameObject canvas;
 
     // semi state
     private HashSet<GameObject> collidingObjects = new HashSet<GameObject>();
@@ -37,6 +42,13 @@ public class PlayerActionController : MonoBehaviour
 
     // think about using a state machine model
     // if we go that route we'll need someway to update the game to match the state
+    // TODO: station class
+
+    private void Start() {
+        progressbarPrefab = Resources.Load<GameObject>("Progress Bar");
+        mainCamera = GameObject.Find("Main Camera").GetComponent<Camera>();
+        canvas = GameObject.Find("Canvas");
+    }
 
     private void SetInventory(GameObject inventory, string item) {
         inventories[inventory] = item;
@@ -134,18 +146,24 @@ public class PlayerActionController : MonoBehaviour
         if (isAttemptCreator) {
             Debug.Log($"Transforming {from} to {to} at {station.tag}");
             // TODO: time dependant on job - currently fixed at 5 seconds
+            var progressbar = Instantiate(progressbarPrefab, canvas.transform);
+            var progressbarTransform = progressbar.GetComponent<RectTransform>();
+            progressbarTransform.anchoredPosition = mainCamera.WorldToScreenPoint(station.transform.position); // z is discarded
+            var slider = progressbar.GetComponent<Slider>();
             while (attempt.elapsed < 5) {
-                Debug.Log($"Transforming {100*(attempt.elapsed / 5f)}%...");
+                slider.value = attempt.elapsed / 5f;
                 await Task.Yield(); // TODO: may have to use https://github.com/Cysharp/UniTask
                 attempt.elapsed += (Time.time - attempt.lastFrameTime) * attempt.players.Count; // more players makes it go faster
                 attempt.lastFrameTime = Time.time;
                 if (attempt.cancelled) {
+                    Destroy(progressbar);
                     return;
                 }
             }
             Debug.Log("Transforming complete!");
             stationTransformAttempts.Remove(station);
             SetInventory(station, to);
+            Destroy(progressbar);
         }
     }
 
