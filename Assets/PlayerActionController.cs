@@ -24,6 +24,9 @@ public class PlayerActionController : MonoBehaviour
             {"tempered_shaped_stock", "blade"}
         }}
     };
+    private static readonly HashSet<string> autoTransformStations = new HashSet<string>() {
+        "forge", "water_bath"
+    };
 
     // semi state
     private HashSet<GameObject> collidingObjects = new HashSet<GameObject>();
@@ -76,7 +79,14 @@ public class PlayerActionController : MonoBehaviour
                 SetInventory(station, GetInventory(gameObject));
                 SetInventory(gameObject, null);
 
-                CancelTransformingForStation(station);
+                var transformations = transformationStations.GetValueOrDefault(station.tag);
+                var stationInventory = GetInventory(station);
+                if (transformations != null && stationInventory != null && autoTransformStations.Contains(station.tag)) {
+                    var transformation = transformations.GetValueOrDefault(stationInventory);
+                    if (transformation != null) {
+                        StartTransforming(station, false);
+                    }
+                }
             } else {
                 // the player is holding something but there's nowhere to put it down
                 // TODO: sad sound effect?
@@ -98,7 +108,7 @@ public class PlayerActionController : MonoBehaviour
         if (depressed) {
             var transformations = transformationStations.GetValueOrDefault(station.tag);
             var stationInventory = GetInventory(station);
-            if (transformations != null && stationInventory != null) {
+            if (transformations != null && stationInventory != null && !autoTransformStations.Contains(station.tag)) {
                 var transformation = transformations.GetValueOrDefault(stationInventory);
                 if (transformation != null) {
                     StartTransforming(station, true);
