@@ -52,7 +52,7 @@ public class PlayerActionController : MonoBehaviour
 
     private void SetInventory(GameObject inventory, string item) {
         inventories[inventory] = item;
-        Debug.Log($"{inventory.tag}: {item}");
+        Debug.Log($"{inventory.tag}: {item ?? "<empty>"}");
 
         // Delete existing inventory item game object
         Transform[] childTransforms = inventory.transform.GetComponentsInChildren<Transform>();

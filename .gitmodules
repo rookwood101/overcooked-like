@@ -1,0 +1,3 @@
+[submodule "Assets/Store Assets"]
+	path = Assets/Store Assets
+	url = git@github.com:rookwood101/overcooked-like-assets.git
