@@ -37,7 +37,7 @@ public class PlayerActionController : MonoBehaviour
     private HashSet<GameObject> collidingObjects = new HashSet<GameObject>();
     
     // state
-    private static Dictionary<GameObject, string> inventories = new Dictionary<GameObject, string>();
+    public static Dictionary<GameObject, string> inventories = new Dictionary<GameObject, string>();
     private static Dictionary<GameObject, TransformAttempt> stationTransformAttempts = new Dictionary<GameObject, TransformAttempt>();
 
     // think about using a state machine model
@@ -48,9 +48,12 @@ public class PlayerActionController : MonoBehaviour
         progressbarPrefab = Resources.Load<GameObject>("Progress Bar");
         mainCamera = GameObject.Find("Main Camera").GetComponent<Camera>();
         canvas = GameObject.Find("Canvas");
+        if (Application.isEditor) {
+            SetInventory(GameObject.Find("fi_vil_forge_coolingbath_large2"), "blade");
+        }
     }
 
-    private void SetInventory(GameObject inventory, string item) {
+    public void SetInventory(GameObject inventory, string item) {
         inventories[inventory] = item;
         Debug.Log($"{inventory.tag}: {item ?? "<empty>"}");
 
