@@ -12,6 +12,9 @@ public class Triggerable : MonoBehaviour
     private void Start()
     {
         renderer = GetComponent<Renderer>();
+        if (renderer == null) {
+            renderer = GetComponentInChildren<Renderer>();
+        }
 
         // Get the current game object's capsule collider
         CapsuleCollider parentCollider = GetComponent<CapsuleCollider>();
