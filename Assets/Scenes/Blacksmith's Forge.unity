@@ -643,6 +643,10 @@ PrefabInstance:
     m_TransformParent: {fileID: 220566357}
     m_Modifications:
     - target: {fileID: 100000, guid: b03817d50290c7d4797ec07068326b88, type: 3}
+      propertyPath: m_TagString
+      value: inventory_item
+      objectReference: {fileID: 0}
+    - target: {fileID: 100000, guid: b03817d50290c7d4797ec07068326b88, type: 3}
       propertyPath: m_StaticEditorFlags
       value: 4294967295
       objectReference: {fileID: 0}
