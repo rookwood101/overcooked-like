@@ -4,6 +4,9 @@ using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.InputSystem;
+using System.Threading;
+using System.Reflection;
+using System;
 
 public class NpcController : MonoBehaviour
 {
@@ -12,6 +15,7 @@ public class NpcController : MonoBehaviour
     private GameObject checkout;
     private GameObject spawn;
     private GameObject canvas;
+    private TMPro.TMP_Text score;
     private Camera mainCamera;
     
     // level length ~5 min
@@ -30,6 +34,7 @@ public class NpcController : MonoBehaviour
         spawn = GameObject.Find("NPC Spawn Location");
         canvas = GameObject.Find("Canvas");
         mainCamera = GameObject.Find("Main Camera").GetComponent<Camera>();
+        score = Instantiate(Prefabs.score, canvas.transform).GetComponent<TMPro.TMP_Text>();
 
         BeginLevel(25, 60, 3*60);
     }
@@ -39,7 +44,9 @@ public class NpcController : MonoBehaviour
         var levelEndTime = levelStartTime + levelTime;
         var levelProgressBar = Instantiate(Prefabs.progressBar, canvas.transform).GetComponent<Slider>();
         var currentOrderGap = 0f;
-        var levelContext = new LevelContext();
+        var levelContext = new LevelContext() {
+            orderFailTime = orderFailTime,
+        };
 
         var levelProgressBarTransform = levelProgressBar.GetComponent<RectTransform>();
         levelProgressBarTransform.anchorMin = new Vector2(0.5f, 1);
@@ -48,7 +55,7 @@ public class NpcController : MonoBehaviour
         levelProgressBarTransform.sizeDelta = new Vector2(100, 30);
 
         // initial order
-        TravelAndBuy(levelContext);
+        TravelAndBuy(levelContext, "blade");
 
         while (Time.time <= levelEndTime) {
             currentOrderGap += Time.deltaTime;
@@ -56,14 +63,14 @@ public class NpcController : MonoBehaviour
 
             if (currentOrderGap > orderGap || levelContext.outstandingOrders == 0) {
                 currentOrderGap = 0;
-                TravelAndBuy(levelContext);
+                TravelAndBuy(levelContext, "blade");
             }
 
             await Task.Yield();
         }
     }
 
-    private async void TravelAndBuy(LevelContext levelContext) {
+    private async void TravelAndBuy(LevelContext levelContext, string item) {
         levelContext.outstandingOrders++;
         var npcGO = Instantiate(npcPrefab, spawn.transform.position, Quaternion.identity);
         var npc = npcGO.GetComponent<PlayerMovementController>();
@@ -73,28 +80,62 @@ public class NpcController : MonoBehaviour
         var speechBubble = Instantiate(speechBubblePrefab, canvas.transform);
         var speechBubbleTransform = speechBubble.GetComponent<RectTransform>();
         speechBubbleTransform.anchoredPosition = mainCamera.WorldToScreenPoint(npc.transform.position) + new Vector3(0, 75, 0); // z is discarded
-
+    
+        var timeoutBar = Instantiate(Prefabs.progressBar, canvas.transform).GetComponent<Slider>();
+        var timeoutBarTransform = timeoutBar.GetComponent<RectTransform>();
+        timeoutBarTransform.anchoredPosition = mainCamera.WorldToScreenPoint(npc.transform.position); // z is discarded
+        timeoutBar.value = 1;
+        var waitTimeStart = Time.time;
         // await receiving item from player
-        while (PlayerActionController.inventories.GetValueOrDefault(npc.gameObject) != "blade") {
+        while (PlayerActionController.inventories.GetValueOrDefault(npc.gameObject) != item) {
+            if (Time.time > waitTimeStart + levelContext.orderFailTime) {
+                Destroy(speechBubble);
+                speechBubble = Instantiate(Prefabs.speechBubbleBad, canvas.transform);
+                speechBubbleTransform = speechBubble.GetComponent<RectTransform>();
+                speechBubbleTransform.anchoredPosition = mainCamera.WorldToScreenPoint(npc.transform.position) + new Vector3(0, 75, 0); // z is discarded
+                levelContext.outstandingOrders--;
+                await Task.Delay(5000);
+                Destroy(timeoutBar.gameObject);
+                Destroy(speechBubble);
+                await TravelTo(npc, spawn);
+            }
             await Task.Yield();
+            timeoutBar.value -= Time.deltaTime / levelContext.orderFailTime;
         }
         
         // go back to spawn
         Destroy(speechBubble);
+        Destroy(timeoutBar.gameObject);
+
         levelContext.outstandingOrders--;
         levelContext.completedOrders++;
+
+        levelContext.score += 50; // cost
+        // tip
+        var waitTimeLeftProportion = 1f - ((Time.time - waitTimeStart) / levelContext.orderFailTime);
+        if (waitTimeLeftProportion > 0.3333f) {
+            levelContext.score += 25;
+        }
+        if (waitTimeLeftProportion > 0.6666f) {
+            levelContext.score += 25;
+        }
+        // TODO: make tip dependant on fulfilling orders in order
+
+        score.text = levelContext.score.ToString();
+
         await TravelTo(npc, spawn);
         Destroy(npcGO);
     }
 
-    private async Task TravelTo(PlayerMovementController npc, GameObject goal) {
+    private async Task TravelTo(PlayerMovementController npc, GameObject goal, float timeout = 10) {
+        var startTime = Time.time;
         var goalVector = GoalVector(npc, goal);
-        while (goalVector.magnitude > 0.5) {
+        while (goalVector.magnitude > 0.5 && Time.time < startTime + timeout) {
             npc.OnMove(goalVector.normalized);
             await Task.Yield();
             goalVector = GoalVector(npc, goal);
         }
-        // TODO: if we hit an obstacle, stop
+        // TODO: if we hit an obstacle, stop. A* or something
         npc.OnMove(Vector2.zero);
     }
 
@@ -102,10 +143,23 @@ public class NpcController : MonoBehaviour
         var goalVector = goal.transform.position - npc.transform.position;
         return new Vector2(goalVector.x, goalVector.z);
     }
+
+    // avoids problems with async code continuing to run when play mode stops
+    void OnApplicationQuit()
+    {
+        #if UNITY_EDITOR
+            var constructor = SynchronizationContext.Current.GetType().GetConstructor(BindingFlags.NonPublic | BindingFlags.Instance, null, new Type[] {typeof(int)}, null);
+            var newContext = constructor.Invoke(new object[] {Thread.CurrentThread.ManagedThreadId });
+            SynchronizationContext.SetSynchronizationContext(newContext as SynchronizationContext);  
+        #endif
+    }
+ 
 }
 
 public record LevelContext {
     public bool finished {get; set;} = false;
     public int outstandingOrders {get; set;} = 0;
     public int completedOrders {get; set;} = 0;
+    public float orderFailTime {get; set;}
+    public int score {get; set;} = 0;
 };
