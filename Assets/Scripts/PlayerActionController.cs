@@ -9,21 +9,24 @@ public class PlayerActionController : MonoBehaviour
 {
     // constants
     private static readonly Dictionary<string, string> unlimitedInventoryStations = new Dictionary<string, string>() {
-        {"stock_pile", "stock"}
+        {"stock_pile", "ingot"}
     };
     private static readonly Dictionary<string, Dictionary<string, string>> transformationStations = new Dictionary<string, Dictionary<string, string>>() {
         {"forge", new Dictionary<string, string>() {
-            {"stock", "hot_stock"}
+            {"stock", "hot_stock"},
+            {"ingot", "ingot"},
         }},
         {"anvil", new Dictionary<string, string>() {
-            {"hot_stock", "hot_shaped_stock"}
+            {"hot_stock", "hot_shaped_stock"},
+            {"ingot", "ingot"}
         }},
         {"water_bath", new Dictionary<string, string>() {
             {"hot_shaped_stock", "tempered_shaped_stock"},
-            {"hot_stock", "stock"}
+            {"hot_stock", "stock"},
+            {"ingot", "ingot"},
         }},
         {"grind_stone", new Dictionary<string, string>() {
-            {"tempered_shaped_stock", "blade"}
+            {"tempered_shaped_stock", "blade"},
         }}
     };
     private static readonly HashSet<string> autoTransformStations = new HashSet<string>() {
@@ -55,7 +58,6 @@ public class PlayerActionController : MonoBehaviour
 
     public void SetInventory(GameObject inventory, string item) {
         inventories[inventory] = item;
-        Debug.Log($"{inventory.tag}: {item ?? "<empty>"}");
 
         // Delete existing inventory item game object
         Transform[] childTransforms = inventory.transform.GetComponentsInChildren<Transform>();
@@ -69,11 +71,43 @@ public class PlayerActionController : MonoBehaviour
 
         // Load the prefab for inventory item just above inventory game object
         var loadedPrefab = Resources.Load<GameObject>(item);
-        if (loadedPrefab != null)
+        var instance = Instantiate(loadedPrefab, inventory.transform);
+        instance.transform.localPosition = Vector3.up;
+    }
+
+    public void SetInventory(GameObject inventory, string item, GameObject itemGO) {
+        inventories[inventory] = item;
+
+        // Delete existing inventory item game object
+        Transform[] childTransforms = inventory.transform.GetComponentsInChildren<Transform>();
+        foreach (Transform childTransform in childTransforms)
         {
-            var instance = Instantiate(loadedPrefab, inventory.transform);
-            instance.transform.localPosition = Vector3.up;
+            if (childTransform.CompareTag("inventory_item"))
+            {
+                Destroy(childTransform.gameObject);
+            }
         }
+
+        itemGO.SetActive(true);
+        itemGO.transform.SetParent(inventory.transform);
+        itemGO.transform.localPosition = Vector3.up;
+    }
+
+    public (string, GameObject) PopInventory(GameObject inventory) {
+        Transform[] childTransforms = inventory.transform.GetComponentsInChildren<Transform>();
+        foreach (Transform childTransform in childTransforms)
+        {
+            if (childTransform.CompareTag("inventory_item"))
+            {
+                childTransform.SetParent(null);
+                childTransform.gameObject.SetActive(false);
+                var item = inventories[inventory];
+                inventories[inventory] = null;
+                return (item, childTransform.gameObject);
+            }
+        }
+        throw new System.Exception("no inventory item??"); // unexpected TODO
+        
     }
 
     private string GetInventory(GameObject inventory) {
@@ -85,14 +119,18 @@ public class PlayerActionController : MonoBehaviour
             var station = collidingObjects.Single();
             if (GetInventory(gameObject) == null) {
                 // the player is holding nothing. Pick up station inventory or station default
-                SetInventory(gameObject, GetInventory(station) ?? unlimitedInventoryStations.GetValueOrDefault(station.tag));
-                SetInventory(station, null);
+                if (GetInventory(station) == null) {
+                    SetInventory(gameObject, unlimitedInventoryStations.GetValueOrDefault(station.tag));
+                } else {
+                    var (item, itemGO) = PopInventory(station);
+                    SetInventory(gameObject, item, itemGO);
+                }
 
                 CancelTransformingForStation(station);
             } else if (GetInventory(station) == null) {
                 // the player is holding something. Put it down
-                SetInventory(station, GetInventory(gameObject));
-                SetInventory(gameObject, null);
+                var (item, itemGO) = PopInventory(gameObject);
+                SetInventory(station, item, itemGO);
 
                 var transformations = transformationStations.GetValueOrDefault(station.tag);
                 var stationInventory = GetInventory(station);
@@ -111,7 +149,7 @@ public class PlayerActionController : MonoBehaviour
 
     public void OnActivateButton(InputAction.CallbackContext context) {
         if (collidingObjects.Count > 1) {
-            Debug.Log("Near too many stations, don't know which to activate");    
+            Debug.Log("Near too many stations, don't know which to activate");
             return;
         }
         if (collidingObjects.Count == 0) {
@@ -126,7 +164,14 @@ public class PlayerActionController : MonoBehaviour
             if (transformations != null && stationInventory != null && !autoTransformStations.Contains(station.tag)) {
                 var transformation = transformations.GetValueOrDefault(stationInventory);
                 if (transformation != null) {
-                    StartTransforming(station, true);
+                    if (stationInventory == "ingot") {
+                        Ingot ingot = station.GetComponentInChildren<Ingot>();
+                         if (station.tag == "anvil") {
+                            ingot.BasicShape();
+                        }
+                    } else {
+                        StartTransforming(station, true);
+                    }
                 }
             }
         } else {
@@ -165,7 +210,16 @@ public class PlayerActionController : MonoBehaviour
             }
             Debug.Log("Transforming complete!");
             stationTransformAttempts.Remove(station);
-            SetInventory(station, to);
+            if (from == "ingot") {
+                Ingot ingot = station.GetComponentInChildren<Ingot>();
+                if (station.tag == "forge") {
+                    ingot.Heat();
+                } if (station.tag == "water_bath") {
+                    ingot.Cool();
+                }
+            } else {
+                SetInventory(station, to);
+            }
             Destroy(progressbar);
         }
     }

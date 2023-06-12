@@ -1,27 +1,37 @@
-using System.Collections;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 using UnityEngine;
 
-public class ForgeSword : MonoBehaviour
+public class Ingot : MonoBehaviour
 {
-    Transform swordTransform;
+    private Transform swordTransform;
+    private new Renderer renderer;
+    private bool isHot = false;
     void Start()
     {
         swordTransform = GetComponent<Transform>();
-        BasicShape(16.712f, 0.084402f, 0.70898f); // https://regenyei.com/product/arming-sword-7/#blade
+        renderer = GetComponent<Renderer>();
     }
 
-    private async void BasicShape(float length, float thickness, float width) {
-        await Task.Delay(2000);
-        var delay = 1000;
+    public void Heat() {
+        isHot = true;
+        renderer.material = Prefabs.hotMetal;
+    }
+    public void Cool() {
+        isHot = false;
+        renderer.material = Prefabs.metal;
+    }
+
+    // dimensions from https://regenyei.com/product/arming-sword-7/#blade
+    public void BasicShape(float length = 16.712f, float thickness = 0.084402f, float width = 0.70898f) {
         var margin = 0.01f;
-        var maxStrength = 0.5f;
+        var maxStrength = 0.1f;
         var idealScale = new Vector3(length, thickness, width);
-        while ((idealScale - swordTransform.localScale).magnitude > margin)
+        if ((idealScale - swordTransform.localScale).magnitude > margin) // consider removing
         {
-            CalculateHammerPlane(idealScale, maxStrength);
-            await Task.Delay(delay);
+            if (isHot) {
+                CalculateHammerPlane(idealScale, maxStrength);
+            }
+            // TODO: credit https://freesound.org/people/MrAuralization/sounds/274846/
+            Prefabs.audioSource.PlayOneShot(Prefabs.anvilSound);
         }
     }
 
@@ -54,17 +64,5 @@ public class ForgeSword : MonoBehaviour
             return Vector3.up;
         }
         return Vector3.forward;
-    }
-    private Vector3 SmallestAxis(Vector3 vec) {
-        if (vec.x < vec.y && vec.x < vec.z) {
-            return Vector3.right;
-        }
-        if (vec.y < vec.x && vec.y < vec.z) {
-            return Vector3.up;
-        }
-        return Vector3.forward;
-    }
-    private Vector3 Abs(Vector3 vec) {
-        return new Vector3(Mathf.Abs(vec.x), Mathf.Abs(vec.y), Mathf.Abs(vec.z));
     }
 }
