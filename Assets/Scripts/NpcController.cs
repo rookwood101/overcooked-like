@@ -98,6 +98,7 @@ public class NpcController : MonoBehaviour
                 Destroy(timeoutBar.gameObject);
                 Destroy(speechBubble);
                 await TravelTo(npc, spawn);
+                return;
             }
             await Task.Yield();
             timeoutBar.value -= Time.deltaTime / levelContext.orderFailTime;
