@@ -5,6 +5,13 @@ public class Ingot : MonoBehaviour
     private Transform swordTransform;
     private new Renderer renderer;
     private bool isHot = false;
+    private const float MAX_STRENGTH = 0.1f;
+    private const float MARGIN = 0.01f;
+
+    private const float DEFAULT_LENGTH = 16.712f;
+    private const float DEFAULT_THICKNESS = 0.084402f;
+    private const float DEFAULT_WIDTH = 0.70898f;
+
     void Start()
     {
         swordTransform = GetComponent<Transform>();
@@ -21,18 +28,21 @@ public class Ingot : MonoBehaviour
     }
 
     // dimensions from https://regenyei.com/product/arming-sword-7/#blade
-    public void BasicShape(float length = 16.712f, float thickness = 0.084402f, float width = 0.70898f) {
-        var margin = 0.01f;
-        var maxStrength = 0.1f;
+    public void BasicShape(float length = DEFAULT_LENGTH, float thickness = DEFAULT_THICKNESS, float width = DEFAULT_WIDTH) {
         var idealScale = new Vector3(length, thickness, width);
-        if ((idealScale - swordTransform.localScale).magnitude > margin) // consider removing
+        if (!IsFinalShape(length, thickness, width)) // consider removing
         {
             if (isHot) {
-                CalculateHammerPlane(idealScale, maxStrength);
+                CalculateHammerPlane(idealScale, MAX_STRENGTH);
             }
             // TODO: credit https://freesound.org/people/MrAuralization/sounds/274846/
             Prefabs.audioSource.PlayOneShot(Prefabs.anvilSound);
         }
+    }
+
+    public bool IsFinalShape(float length = DEFAULT_LENGTH, float thickness = DEFAULT_THICKNESS, float width = DEFAULT_WIDTH) {
+        var idealScale = new Vector3(length, thickness, width);
+        return (idealScale - swordTransform.localScale).magnitude <= MARGIN;
     }
 
     private void CalculateHammerPlane(Vector3 idealScale, float maxStrength)

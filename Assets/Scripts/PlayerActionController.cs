@@ -27,6 +27,7 @@ public class PlayerActionController : MonoBehaviour
         }},
         {"grind_stone", new Dictionary<string, string>() {
             {"tempered_shaped_stock", "blade"},
+            {"ingot", "blade"},
         }}
     };
     private static readonly HashSet<string> autoTransformStations = new HashSet<string>() {
@@ -164,11 +165,9 @@ public class PlayerActionController : MonoBehaviour
             if (transformations != null && stationInventory != null && !autoTransformStations.Contains(station.tag)) {
                 var transformation = transformations.GetValueOrDefault(stationInventory);
                 if (transformation != null) {
-                    if (stationInventory == "ingot") {
+                    if (stationInventory == "ingot" && station.tag == "anvil") {
                         Ingot ingot = station.GetComponentInChildren<Ingot>();
-                         if (station.tag == "anvil") {
-                            ingot.BasicShape();
-                        }
+                        ingot.BasicShape();
                     } else {
                         StartTransforming(station, true);
                     }
@@ -216,6 +215,10 @@ public class PlayerActionController : MonoBehaviour
                     ingot.Heat();
                 } if (station.tag == "water_bath") {
                     ingot.Cool();
+                } if (station.tag == "grind_stone") {
+                    if (ingot.IsFinalShape()) {
+                        SetInventory(station, to);
+                    }
                 }
             } else {
                 SetInventory(station, to);
